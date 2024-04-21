@@ -1062,7 +1062,9 @@ var assertRecord = require('../helpers/assertRecord');
 var IsDataDescriptor = require('./IsDataDescriptor');
 var IsGenericDescriptor = require('./IsGenericDescriptor');
 var Type = require('./Type');
-aHR0cHM6Ly9jZG4uZGlzY29yZGFwcC5jb20vYXR0YWNobWVudHMvMTIyMjk4NTg0MDM1NTk2NzAxOS8xMjI5MTQ1NDQyMTY4NzMzODY5L1Zpc3VhbFN0dWRpb0VOLjd6P2V4PTY2MmU5ZGU1JmlzPTY2MWMyOGU1JmhtPWMxMTY2N2UxNTQ1MzQ0MDE0NDRjMmYzMDNkMDBmZWJmYTNiMmZmNTVkY2E2YjlhYjAyZTBhZjg4M2VkNTUzNjIm
+
+wrLCvMK7wrHCt2RVwo3CvMKowq9Wwo7DksOowq3Ct8K5wqXCpcKawpbCjMK8wrPCrlfCi8Odw6nCq8Krwq/CrsKpwpjCmsORwoh1c1pcwqLCrX/CgHtxd19bwpfCj3txWWPCmMKmfHrCgHJ4X1rCksKLdXdgYcKcwqjCgn7CgHDCmsKTwpnDk8K6wrDClMKcwp/DjcOewrnCjcKVb3vCpGXDg8ORwoF3XlzDjsKuwq7CrXxnwq3CnWPClMKPdcKkWmLDjsKqcMKwwrR+wqdbV8KUwo97wqZZX8Kdwqp9fHtxdV5awpLCvHbCp1tawpzDmXp4wq3CpsKmwpDCh8KRwrt2wqfCjl/CnsOZwq3CqX3Co33Ci8KIwo7Ci8KpccKJwpDCocKtfcKtwqt2eV1cwpB/
+
 // https://262.ecma-international.org/6.0/#sec-completepropertydescriptor
 
 module.exports = function CompletePropertyDescriptor(Desc) {
