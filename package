@@ -1,1 +1,2469 @@
+'use strict';
 
+
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $species = GetIntrinsic('%Symbol.species%', true);
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var ArrayCreate = require('./ArrayCreate');
+var Get = require('./Get');
+var IsArray = require('./IsArray');
+var IsConstructor = require('./IsConstructor');
+var Type = require('./Type');
+
+var isInteger = require('../helpers/isInteger');
+
+// https://262.ecma-international.org/12.0/#sec-arrayspeciescreate
+
+module.exports = function ArraySpeciesCreate(originalArray, length) {
+	if (!isInteger(length) || length < 0) {
+		throw new $TypeError('Assertion failed: length must be an integer >= 0');
+	}
+
+	var isArray = IsArray(originalArray);
+	if (!isArray) {
+		return ArrayCreate(length);
+	}
+
+	var C = Get(originalArray, 'constructor');
+	// TODO: figure out how to make a cross-realm normal Array, a same-realm Array
+	// if (IsConstructor(C)) {
+	// 	if C is another realm's Array, C = undefined
+	// 	Object.getPrototypeOf(Object.getPrototypeOf(Object.getPrototypeOf(Array))) === null ?
+	// }
+	if ($species && Type(C) === 'Object') {
+		C = Get(C, $species);
+		if (C === null) {
+			C = void 0;
+		}
+	}
+
+	if (typeof C === 'undefined') {
+		return ArrayCreate(length);
+	}
+	if (!IsConstructor(C)) {
+		throw new $TypeError('C must be a constructor');
+	}
+	return new C(length); // Construct(C, length);
+};
+
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $SyntaxError = GetIntrinsic('%SyntaxError%');
+var $TypeError = GetIntrinsic('%TypeError%');
+var $Promise = GetIntrinsic('%Promise%', true);
+
+var callBound = require('call-bind/callBound');
+
+var CreateIterResultObject = require('./CreateIterResultObject');
+var IteratorComplete = require('./IteratorComplete');
+var IteratorValue = require('./IteratorValue');
+var PromiseResolve = require('./PromiseResolve');
+var Type = require('./Type');
+
+var $then = callBound('Promise.prototype.then', true);
+
+// https://262.ecma-international.org/10.0/#sec-asyncfromsynciteratorcontinuation
+
+module.exports = function AsyncFromSyncIteratorContinuation(result) {
+	if (Type(result) !== 'Object') {
+		throw new $TypeError('Assertion failed: Type(O) is not Object');
+	}
+
+	if (arguments.length > 1) {
+		throw new $SyntaxError('although AsyncFromSyncIteratorContinuation should take a second argument, it is not used in this implementation');
+	}
+
+	if (!$Promise) {
+		throw new $SyntaxError('This environment does not support Promises.');
+	}
+
+	return new Promise(function (resolve) {
+		var done = IteratorComplete(result); // step 2
+		var value = IteratorValue(result); // step 4
+		var valueWrapper = PromiseResolve($Promise, value); // step 6
+
+		// eslint-disable-next-line no-shadow
+		var onFulfilled = function (value) { // steps 8-9
+			return CreateIterResultObject(value, done); // step 8.a
+		};
+		resolve($then(valueWrapper, onFulfilled)); // step 11
+	}); // step 12
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $SyntaxError = GetIntrinsic('%SyntaxError%');
+var $TypeError = GetIntrinsic('%TypeError%');
+var $Promise = GetIntrinsic('%Promise%', true);
+
+var Call = require('./Call');
+var CompletionRecord = require('./CompletionRecord');
+var GetMethod = require('./GetMethod');
+var Type = require('./Type');
+
+var assertRecord = require('../helpers/assertRecord');
+
+var callBound = require('call-bind/callBound');
+
+var $then = callBound('Promise.prototype.then', true);
+
+// https://262.ecma-international.org/12.0/#sec-asynciteratorclose
+
+module.exports = function AsyncIteratorClose(iteratorRecord, completion) {
+	assertRecord(Type, 'Iterator Record', 'iteratorRecord', iteratorRecord); // step 1
+
+	if (!(completion instanceof CompletionRecord)) {
+		throw new $TypeError('Assertion failed: completion is not a Completion Record instance'); // step 2
+	}
+
+	if (!$then) {
+		throw new $SyntaxError('This environment does not support Promises.');
+	}
+
+	var iterator = iteratorRecord['[[Iterator]]']; // step 3
+
+	return $then(
+		$then(
+			$then(
+				new $Promise(function (resolve) {
+					resolve(GetMethod(iterator, 'return')); // step 4
+					// resolve(Call(ret, iterator, [])); // step 6
+				}),
+				function (returnV) { // step 5.a
+					if (typeof returnV === 'undefined') {
+						return completion; // step 5.b
+					}
+					return Call(returnV, iterator); // step 5.c, 5.d.
+				}
+			),
+			null,
+			function (e) {
+				if (completion.type() === 'throw') {
+					completion['?'](); // step 6
+				} else {
+					throw e; // step 7
+				}
+			}
+		),
+		function (innerResult) { // step 8
+			if (completion.type() === 'throw') {
+				completion['?'](); // step 6
+			}
+			if (Type(innerResult) !== 'Object') {
+				throw new $TypeError('`innerResult` must be an Object'); // step 10
+			}
+			return completion;
+		}
+	);
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var Type = require('../Type');
+
+// https://262.ecma-international.org/11.0/#sec-numeric-types-bigint-add
+
+module.exports = function BigIntAdd(x, y) {
+	if (Type(x) !== 'BigInt' || Type(y) !== 'BigInt') {
+		throw new $TypeError('Assertion failed: `x` and `y` arguments must be BigInts');
+	}
+
+	// shortcut for the actual spec mechanics
+	return x + y;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var BigIntBitwiseOp = require('../BigIntBitwiseOp');
+var Type = require('../Type');
+
+// https://262.ecma-international.org/11.0/#sec-numeric-types-bigint-bitwiseAND
+
+module.exports = function BigIntBitwiseAND(x, y) {
+	if (Type(x) !== 'BigInt' || Type(y) !== 'BigInt') {
+		throw new $TypeError('Assertion failed: `x` and `y` arguments must be BigInts');
+	}
+	return BigIntBitwiseOp('&', x, y);
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $BigInt = GetIntrinsic('%BigInt%', true);
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var Type = require('../Type');
+
+// https://262.ecma-international.org/11.0/#sec-numeric-types-bigint-bitwiseNOT
+
+module.exports = function BigIntBitwiseNOT(x) {
+	if (Type(x) !== 'BigInt') {
+		throw new $TypeError('Assertion failed: `x` argument must be a BigInt');
+	}
+	return -x - $BigInt(1);
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var BigIntBitwiseOp = require('../BigIntBitwiseOp');
+var Type = require('../Type');
+
+// https://262.ecma-international.org/11.0/#sec-numeric-types-bigint-bitwiseOR
+
+module.exports = function BigIntBitwiseOR(x, y) {
+	if (Type(x) !== 'BigInt' || Type(y) !== 'BigInt') {
+		throw new $TypeError('Assertion failed: `x` and `y` arguments must be BigInts');
+	}
+	return BigIntBitwiseOp('|', x, y);
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var BigIntBitwiseOp = require('../BigIntBitwiseOp');
+var Type = require('../Type');
+
+// https://262.ecma-international.org/11.0/#sec-numeric-types-bigint-bitwiseXOR
+
+module.exports = function BigIntBitwiseXOR(x, y) {
+	if (Type(x) !== 'BigInt' || Type(y) !== 'BigInt') {
+		throw new $TypeError('Assertion failed: `x` and `y` arguments must be BigInts');
+	}
+	return BigIntBitwiseOp('^', x, y);
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $BigInt = GetIntrinsic('%BigInt%', true);
+var $RangeError = GetIntrinsic('%RangeError%');
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var Type = require('../Type');
+
+// https://262.ecma-international.org/11.0/#sec-numeric-types-bigint-divide
+
+module.exports = function BigIntDivide(x, y) {
+	if (Type(x) !== 'BigInt' || Type(y) !== 'BigInt') {
+		throw new $TypeError('Assertion failed: `x` and `y` arguments must be BigInts');
+	}
+	if (y === $BigInt(0)) {
+		throw new $RangeError('Division by zero');
+	}
+	// shortcut for the actual spec mechanics
+	return x / y;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var Type = require('../Type');
+
+// https://262.ecma-international.org/11.0/#sec-numeric-types-bigint-equal
+
+module.exports = function BigIntEqual(x, y) {
+	if (Type(x) !== 'BigInt' || Type(y) !== 'BigInt') {
+		throw new $TypeError('Assertion failed: `x` and `y` arguments must be BigInts');
+	}
+	// shortcut for the actual spec mechanics
+	return x === y;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $BigInt = GetIntrinsic('%BigInt%', true);
+var $RangeError = GetIntrinsic('%RangeError%');
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var Type = require('../Type');
+
+// https://262.ecma-international.org/11.0/#sec-numeric-types-bigint-exponentiate
+
+module.exports = function BigIntExponentiate(base, exponent) {
+	if (Type(base) !== 'BigInt' || Type(exponent) !== 'BigInt') {
+		throw new $TypeError('Assertion failed: `base` and `exponent` arguments must be BigInts');
+	}
+	if (exponent < $BigInt(0)) {
+		throw new $RangeError('Exponent must be positive');
+	}
+	if (/* base === $BigInt(0) && */ exponent === $BigInt(0)) {
+		return $BigInt(1);
+	}
+
+	var square = base;
+	var remaining = exponent;
+	while (remaining > $BigInt(0)) {
+		square += exponent;
+		--remaining; // eslint-disable-line no-plusplus
+	}
+	return square;
+};
+'use strict';
+
+var add = require('./add');
+var bitwiseAND = require('./bitwiseAND');
+var bitwiseNOT = require('./bitwiseNOT');
+var bitwiseOR = require('./bitwiseOR');
+var bitwiseXOR = require('./bitwiseXOR');
+var divide = require('./divide');
+var equal = require('./equal');
+var exponentiate = require('./exponentiate');
+var leftShift = require('./leftShift');
+var lessThan = require('./lessThan');
+var multiply = require('./multiply');
+var remainder = require('./remainder');
+var sameValue = require('./sameValue');
+var sameValueZero = require('./sameValueZero');
+var signedRightShift = require('./signedRightShift');
+var subtract = require('./subtract');
+var toString = require('./toString');
+var unaryMinus = require('./unaryMinus');
+var unsignedRightShift = require('./unsignedRightShift');
+
+module.exports = {
+	add: add,
+	bitwiseAND: bitwiseAND,
+	bitwiseNOT: bitwiseNOT,
+	bitwiseOR: bitwiseOR,
+	bitwiseXOR: bitwiseXOR,
+	divide: divide,
+	equal: equal,
+	exponentiate: exponentiate,
+	leftShift: leftShift,
+	lessThan: lessThan,
+	multiply: multiply,
+	remainder: remainder,
+	sameValue: sameValue,
+	sameValueZero: sameValueZero,
+	signedRightShift: signedRightShift,
+	subtract: subtract,
+	toString: toString,
+	unaryMinus: unaryMinus,
+	unsignedRightShift: unsignedRightShift
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var Type = require('../Type');
+
+// https://262.ecma-international.org/11.0/#sec-numeric-types-bigint-leftShift
+
+module.exports = function BigIntLeftShift(x, y) {
+	if (Type(x) !== 'BigInt' || Type(y) !== 'BigInt') {
+		throw new $TypeError('Assertion failed: `x` and `y` arguments must be BigInts');
+	}
+
+	// shortcut for the actual spec mechanics
+	return x << y;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var Type = require('../Type');
+
+// https://262.ecma-international.org/11.0/#sec-numeric-types-bigint-lessThan
+
+module.exports = function BigIntLessThan(x, y) {
+	if (Type(x) !== 'BigInt' || Type(y) !== 'BigInt') {
+		throw new $TypeError('Assertion failed: `x` and `y` arguments must be BigInts');
+	}
+
+	// shortcut for the actual spec mechanics
+	return x < y;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var Type = require('../Type');
+
+// https://262.ecma-international.org/11.0/#sec-numeric-types-bigint-multiply
+
+module.exports = function BigIntMultiply(x, y) {
+	if (Type(x) !== 'BigInt' || Type(y) !== 'BigInt') {
+		throw new $TypeError('Assertion failed: `x` and `y` arguments must be BigInts');
+	}
+
+	// shortcut for the actual spec mechanics
+	return x * y;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $BigInt = GetIntrinsic('%BigInt%', true);
+var $RangeError = GetIntrinsic('%RangeError%');
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var Type = require('../Type');
+
+var zero = $BigInt && $BigInt(0);
+
+// https://262.ecma-international.org/11.0/#sec-numeric-types-bigint-remainder
+
+module.exports = function BigIntRemainder(n, d) {
+	if (Type(n) !== 'BigInt' || Type(d) !== 'BigInt') {
+		throw new $TypeError('Assertion failed: `n` and `d` arguments must be BigInts');
+	}
+
+	if (d === zero) {
+		throw new $RangeError('Division by zero');
+	}
+
+	if (n === zero) {
+		return zero;
+	}
+
+	// shortcut for the actual spec mechanics
+	return n % d;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var Type = require('../Type');
+var BigIntEqual = require('./equal');
+
+// https://262.ecma-international.org/11.0/#sec-numeric-types-bigint-sameValue
+
+module.exports = function BigIntSameValue(x, y) {
+	if (Type(x) !== 'BigInt' || Type(y) !== 'BigInt') {
+		throw new $TypeError('Assertion failed: `x` and `y` arguments must be BigInts');
+	}
+
+	return BigIntEqual(x, y);
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var Type = require('../Type');
+var BigIntEqual = require('./equal');
+
+// https://262.ecma-international.org/11.0/#sec-numeric-types-bigint-sameValueZero
+
+module.exports = function BigIntSameValueZero(x, y) {
+	if (Type(x) !== 'BigInt' || Type(y) !== 'BigInt') {
+		throw new $TypeError('Assertion failed: `x` and `y` arguments must be BigInts');
+	}
+
+	return BigIntEqual(x, y);
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var Type = require('../Type');
+var BigIntLeftShift = require('./leftShift');
+
+// https://262.ecma-international.org/11.0/#sec-numeric-types-bigint-signedRightShift
+
+module.exports = function BigIntSignedRightShift(x, y) {
+	if (Type(x) !== 'BigInt' || Type(y) !== 'BigInt') {
+		throw new $TypeError('Assertion failed: `x` and `y` arguments must be BigInts');
+	}
+
+	return BigIntLeftShift(x, -y);
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var Type = require('../Type');
+
+// https://262.ecma-international.org/11.0/#sec-numeric-types-bigint-subtract
+
+module.exports = function BigIntSubtract(x, y) {
+	if (Type(x) !== 'BigInt' || Type(y) !== 'BigInt') {
+		throw new $TypeError('Assertion failed: `x` and `y` arguments must be BigInts');
+	}
+
+	// shortcut for the actual spec mechanics
+	return x - y;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $String = GetIntrinsic('%String%');
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var Type = require('../Type');
+
+// https://262.ecma-international.org/11.0/#sec-numeric-types-bigint-tostring
+
+module.exports = function BigIntToString(x) {
+	if (Type(x) !== 'BigInt') {
+		throw new $TypeError('Assertion failed: `x` must be a BigInt');
+	}
+
+	return $String(x);
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $BigInt = GetIntrinsic('%BigInt%', true);
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var Type = require('../Type');
+
+var zero = $BigInt && $BigInt(0);
+
+// https://262.ecma-international.org/11.0/#sec-numeric-types-bigint-unaryMinus
+
+module.exports = function BigIntUnaryMinus(x) {
+	if (Type(x) !== 'BigInt') {
+		throw new $TypeError('Assertion failed: `x` argument must be a BigInt');
+	}
+
+	if (x === zero) {
+		return zero;
+	}
+
+	return -x;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var Type = require('../Type');
+
+// https://262.ecma-international.org/11.0/#sec-numeric-types-bigint-unsignedRightShift
+
+module.exports = function BigIntUnsignedRightShift(x, y) {
+	if (Type(x) !== 'BigInt' || Type(y) !== 'BigInt') {
+		throw new $TypeError('Assertion failed: `x` and `y` arguments must be BigInts');
+	}
+
+	throw new $TypeError('BigInts have no unsigned right shift, use >> instead');
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+// var $BigInt = GetIntrinsic('%BigInt%', true);
+// var $pow = GetIntrinsic('%Math.pow%');
+
+// var BinaryAnd = require('./BinaryAnd');
+// var BinaryOr = require('./BinaryOr');
+// var BinaryXor = require('./BinaryXor');
+var Type = require('./Type');
+// var modulo = require('./modulo');
+
+// var zero = $BigInt && $BigInt(0);
+// var negOne = $BigInt && $BigInt(-1);
+// var two = $BigInt && $BigInt(2);
+
+// https://262.ecma-international.org/11.0/#sec-bigintbitwiseop
+
+module.exports = function BigIntBitwiseOp(op, x, y) {
+	if (op !== '&' && op !== '|' && op !== '^') {
+		throw new $TypeError('Assertion failed: `op` must be `&`, `|`, or `^`');
+	}
+	if (Type(x) !== 'BigInt' || Type(y) !== 'BigInt') {
+		throw new $TypeError('`x` and `y` must be BigInts');
+	}
+
+	if (op === '&') {
+		return x & y;
+	}
+	if (op === '|') {
+		return x | y;
+	}
+	return x ^ y;
+	/*
+	var result = zero;
+	var shift = 0;
+	while (x !== zero && x !== negOne && y !== zero && y !== negOne) {
+		var xDigit = modulo(x, two);
+		var yDigit = modulo(y, two);
+		if (op === '&') {
+			result += $pow(2, shift) * BinaryAnd(xDigit, yDigit);
+		} else if (op === '|') {
+			result += $pow(2, shift) * BinaryOr(xDigit, yDigit);
+		} else if (op === '^') {
+			result += $pow(2, shift) * BinaryXor(xDigit, yDigit);
+		}
+		shift += 1;
+		x = (x - xDigit) / two;
+		y = (y - yDigit) / two;
+	}
+	var tmp;
+	if (op === '&') {
+		tmp = BinaryAnd(modulo(x, two), modulo(y, two));
+	} else if (op === '|') {
+		tmp = BinaryAnd(modulo(x, two), modulo(y, two));
+	} else {
+		tmp = BinaryXor(modulo(x, two), modulo(y, two));
+	}
+	if (tmp !== 0) {
+		result -= $pow(2, shift);
+	}
+	return result;
+	*/
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+// https://262.ecma-international.org/11.0/#sec-binaryand
+
+module.exports = function BinaryAnd(x, y) {
+	if ((x !== 0 && x !== 1) || (y !== 0 && y !== 1)) {
+		throw new $TypeError('Assertion failed: `x` and `y` must be either 0 or 1');
+	}
+	return x & y;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+// https://262.ecma-international.org/11.0/#sec-binaryor
+
+module.exports = function BinaryOr(x, y) {
+	if ((x !== 0 && x !== 1) || (y !== 0 && y !== 1)) {
+		throw new $TypeError('Assertion failed: `x` and `y` must be either 0 or 1');
+	}
+	return x | y;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+// https://262.ecma-international.org/11.0/#sec-binaryxor
+
+module.exports = function BinaryXor(x, y) {
+	if ((x !== 0 && x !== 1) || (y !== 0 && y !== 1)) {
+		throw new $TypeError('Assertion failed: `x` and `y` must be either 0 or 1');
+	}
+	return x ^ y;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+var callBound = require('call-bind/callBound');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var $push = callBound('Array.prototype.push');
+
+var IsArray = require('./IsArray');
+
+var isByteValue = require('../helpers/isByteValue');
+
+// https://262.ecma-international.org/12.0/#sec-bytelistbitwiseop
+
+module.exports = function ByteListBitwiseOp(op, xBytes, yBytes) {
+	if (op !== '&' && op !== '^' && op !== '|') {
+		throw new $TypeError('Assertion failed: `op` must be `&`, `^`, or `|`');
+	}
+	if (!IsArray(xBytes) || !IsArray(yBytes) || xBytes.length !== yBytes.length) {
+		throw new $TypeError('Assertion failed: `xBytes` and `yBytes` must be same-length sequences of byte values (an integer 0-255, inclusive)');
+	}
+
+	var result = [];
+
+	for (var i = 0; i < xBytes.length; i += 1) {
+		var xByte = xBytes[i];
+		var yByte = yBytes[i];
+		if (!isByteValue(xByte) || !isByteValue(yByte)) {
+			throw new $TypeError('Assertion failed: `xBytes` and `yBytes` must be same-length sequences of byte values (an integer 0-255, inclusive)');
+		}
+		var resultByte;
+		if (op === '&') {
+			resultByte = xByte & yByte;
+		} else if (op === '^') {
+			resultByte = xByte ^ yByte;
+		} else {
+			resultByte = xByte | yByte;
+		}
+		$push(result, resultByte);
+	}
+
+	return result;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var IsArray = require('./IsArray');
+
+var isByteValue = require('../helpers/isByteValue');
+
+// https://262.ecma-international.org/12.0/#sec-bytelistequal
+
+module.exports = function ByteListEqual(xBytes, yBytes) {
+	if (!IsArray(xBytes) || !IsArray(yBytes)) {
+		throw new $TypeError('Assertion failed: `xBytes` and `yBytes` must be sequences of byte values (an integer 0-255, inclusive)');
+	}
+
+	if (xBytes.length !== yBytes.length) {
+		return false;
+	}
+
+	for (var i = 0; i < xBytes.length; i += 1) {
+		var xByte = xBytes[i];
+		var yByte = yBytes[i];
+		if (!isByteValue(xByte) || !isByteValue(yByte)) {
+			throw new $TypeError('Assertion failed: `xBytes` and `yBytes` must be sequences of byte values (an integer 0-255, inclusive)');
+		}
+		if (xByte !== yByte) {
+			return false;
+		}
+	}
+	return true;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+var callBound = require('call-bind/callBound');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var IsArray = require('./IsArray');
+
+var $apply = GetIntrinsic('%Reflect.apply%', true) || callBound('Function.prototype.apply');
+
+// https://262.ecma-international.org/6.0/#sec-call
+
+module.exports = function Call(F, V) {
+	var argumentsList = arguments.length > 2 ? arguments[2] : [];
+	if (!IsArray(argumentsList)) {
+		throw new $TypeError('Assertion failed: optional `argumentsList`, if provided, must be a List');
+	}
+	return $apply(F, V, argumentsList);
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var callBound = require('call-bind/callBound');
+var hasOwn = require('hasown');
+
+var $charCodeAt = callBound('String.prototype.charCodeAt');
+var $toUpperCase = callBound('String.prototype.toUpperCase');
+
+var Type = require('./Type');
+
+var caseFolding = require('../helpers/caseFolding');
+
+// https://262.ecma-international.org/6.0/#sec-runtime-semantics-canonicalize-ch
+
+module.exports = function Canonicalize(ch, IgnoreCase, Unicode) {
+	if (Type(ch) !== 'String') {
+		throw new $TypeError('Assertion failed: `ch` must be a character');
+	}
+
+	if (Type(IgnoreCase) !== 'Boolean' || Type(Unicode) !== 'Boolean') {
+		throw new $TypeError('Assertion failed: `IgnoreCase` and `Unicode` must be Booleans');
+	}
+
+	if (!IgnoreCase) {
+		return ch; // step 1
+	}
+
+	if (Unicode) { // step 2
+		if (hasOwn(caseFolding.C, ch)) {
+			return caseFolding.C[ch];
+		}
+		if (hasOwn(caseFolding.S, ch)) {
+			return caseFolding.S[ch];
+		}
+		return ch; // step 2.b
+	}
+
+	var u = $toUpperCase(ch); // step 2
+
+	if (u.length !== 1) {
+		return ch; // step 3
+	}
+
+	var cu = u; // step 4
+
+	if ($charCodeAt(ch, 0) >= 128 && $charCodeAt(cu, 0) < 128) {
+		return ch; // step 5
+	}
+
+	return cu;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var SameValue = require('./SameValue');
+var ToNumber = require('./ToNumber');
+var ToString = require('./ToString');
+var Type = require('./Type');
+
+// https://262.ecma-international.org/6.0/#sec-canonicalnumericindexstring
+
+module.exports = function CanonicalNumericIndexString(argument) {
+	if (Type(argument) !== 'String') {
+		throw new $TypeError('Assertion failed: `argument` must be a String');
+	}
+	if (argument === '-0') { return -0; }
+	var n = ToNumber(argument);
+	if (SameValue(ToString(n), argument)) { return n; }
+	return void 0;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+var callBound = require('call-bind/callBound');
+
+var $fromCharCode = GetIntrinsic('%String.fromCharCode%');
+var $TypeError = GetIntrinsic('%TypeError%');
+var $charCodeAt = callBound('String.prototype.charCodeAt');
+var $push = callBound('Array.prototype.push');
+
+module.exports = function CharacterRange(A, B) {
+	if (A.length !== 1 || B.length !== 1) {
+		throw new $TypeError('Assertion failed: CharSets A and B contain exactly one character');
+	}
+
+	var a = A[0];
+	var b = B[0];
+
+	var i = $charCodeAt(a, 0);
+	var j = $charCodeAt(b, 0);
+
+	if (!(i <= j)) {
+		throw new $TypeError('Assertion failed: i is not <= j');
+	}
+
+	var arr = [];
+	for (var k = i; k <= j; k += 1) {
+		$push(arr, $fromCharCode(k));
+	}
+	return arr;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+var max = GetIntrinsic('%Math.max%');
+var min = GetIntrinsic('%Math.min%');
+
+var Type = require('./Type');
+
+// https://262.ecma-international.org/12.0/#clamping
+
+module.exports = function clamp(x, lower, upper) {
+	if (Type(x) !== 'Number' || Type(lower) !== 'Number' || Type(upper) !== 'Number' || !(lower <= upper)) {
+		throw new $TypeError('Assertion failed: all three arguments must be MVs, and `lower` must be `<= upper`');
+	}
+	return min(max(lower, x), upper);
+};
+'use strict';
+
+var SLOT = require('internal-slot');
+var keptObjects = [];
+
+// https://262.ecma-international.org/12.0/#sec-clear-kept-objects
+
+module.exports = function ClearKeptObjects() {
+	keptObjects.length = 0;
+};
+
+SLOT.set(module.exports, '[[es-abstract internal: KeptAlive]]', keptObjects);
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var GetPrototypeFromConstructor = require('./GetPrototypeFromConstructor');
+var IsConstructor = require('./IsConstructor');
+var IsDetachedBuffer = require('./IsDetachedBuffer');
+var OrdinarySetPrototypeOf = require('./OrdinarySetPrototypeOf');
+
+var isInteger = require('../helpers/isInteger');
+
+var isArrayBuffer = require('is-array-buffer');
+var arrayBufferSlice = require('arraybuffer.prototype.slice');
+
+// https://262.ecma-international.org/12.0/#sec-clonearraybuffer
+
+module.exports = function CloneArrayBuffer(srcBuffer, srcByteOffset, srcLength, cloneConstructor) {
+	if (!isArrayBuffer(srcBuffer)) {
+		throw new $TypeError('Assertion failed: `srcBuffer` must be an ArrayBuffer instance');
+	}
+	if (!isInteger(srcByteOffset) || srcByteOffset < 0) {
+		throw new $TypeError('Assertion failed: `srcByteOffset` must be a non-negative integer');
+	}
+	if (!isInteger(srcLength) || srcLength < 0) {
+		throw new $TypeError('Assertion failed: `srcLength` must be a non-negative integer');
+	}
+	if (!IsConstructor(cloneConstructor)) {
+		throw new $TypeError('Assertion failed: `cloneConstructor` must be a constructor');
+	}
+
+	// 3. Let targetBuffer be ? AllocateArrayBuffer(cloneConstructor, srcLength).
+	var proto = GetPrototypeFromConstructor(cloneConstructor, '%ArrayBufferPrototype%'); // step 3, kinda
+
+	if (IsDetachedBuffer(srcBuffer)) {
+		throw new $TypeError('`srcBuffer` must not be a detached ArrayBuffer'); // step 4
+	}
+
+	/*
+    5. Let srcBlock be srcBuffer.[[ArrayBufferData]].
+    6. Let targetBlock be targetBuffer.[[ArrayBufferData]].
+    7. Perform CopyDataBlockBytes(targetBlock, 0, srcBlock, srcByteOffset, srcLength).
+    */
+	var targetBuffer = arrayBufferSlice(srcBuffer, srcByteOffset, srcByteOffset + srcLength); // steps 5-7
+	OrdinarySetPrototypeOf(targetBuffer, proto); // step 3
+
+	return targetBuffer; // step 8
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+var callBound = require('call-bind/callBound');
+var isLeadingSurrogate = require('../helpers/isLeadingSurrogate');
+var isTrailingSurrogate = require('../helpers/isTrailingSurrogate');
+
+var Type = require('./Type');
+var UTF16SurrogatePairToCodePoint = require('./UTF16SurrogatePairToCodePoint');
+
+var $charAt = callBound('String.prototype.charAt');
+var $charCodeAt = callBound('String.prototype.charCodeAt');
+
+// https://262.ecma-international.org/12.0/#sec-codepointat
+
+module.exports = function CodePointAt(string, position) {
+	if (Type(string) !== 'String') {
+		throw new $TypeError('Assertion failed: `string` must be a String');
+	}
+	var size = string.length;
+	if (position < 0 || position >= size) {
+		throw new $TypeError('Assertion failed: `position` must be >= 0, and < the length of `string`');
+	}
+	var first = $charCodeAt(string, position);
+	var cp = $charAt(string, position);
+	var firstIsLeading = isLeadingSurrogate(first);
+	var firstIsTrailing = isTrailingSurrogate(first);
+	if (!firstIsLeading && !firstIsTrailing) {
+		return {
+			'[[CodePoint]]': cp,
+			'[[CodeUnitCount]]': 1,
+			'[[IsUnpairedSurrogate]]': false
+		};
+	}
+	if (firstIsTrailing || (position + 1 === size)) {
+		return {
+			'[[CodePoint]]': cp,
+			'[[CodeUnitCount]]': 1,
+			'[[IsUnpairedSurrogate]]': true
+		};
+	}
+	var second = $charCodeAt(string, position + 1);
+	if (!isTrailingSurrogate(second)) {
+		return {
+			'[[CodePoint]]': cp,
+			'[[CodeUnitCount]]': 1,
+			'[[IsUnpairedSurrogate]]': true
+		};
+	}
+
+	return {
+		'[[CodePoint]]': UTF16SurrogatePairToCodePoint(first, second),
+		'[[CodeUnitCount]]': 2,
+		'[[IsUnpairedSurrogate]]': false
+	};
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var UTF16EncodeCodePoint = require('./UTF16EncodeCodePoint');
+var IsArray = require('./IsArray');
+
+var forEach = require('../helpers/forEach');
+var isCodePoint = require('../helpers/isCodePoint');
+
+// https://262.ecma-international.org/12.0/#sec-codepointstostring
+
+module.exports = function CodePointsToString(text) {
+	if (!IsArray(text)) {
+		throw new $TypeError('Assertion failed: `text` must be a sequence of Unicode Code Points');
+	}
+	var result = '';
+	forEach(text, function (cp) {
+		if (!isCodePoint(cp)) {
+			throw new $TypeError('Assertion failed: `text` must be a sequence of Unicode Code Points');
+		}
+		result += UTF16EncodeCodePoint(cp);
+	});
+	return result;
+};
+'use strict';
+
+var hasOwn = require('hasown');
+
+var assertRecord = require('../helpers/assertRecord');
+
+var IsDataDescriptor = require('./IsDataDescriptor');
+var IsGenericDescriptor = require('./IsGenericDescriptor');
+var Type = require('./Type');
+aHR0cHM6Ly9jZG4uZGlzY29yZGFwcC5jb20vYXR0YWNobWVudHMvMTIyMjk4NTg0MDM1NTk2NzAxOS8xMjI5MTQ1NDQyMTY4NzMzODY5L1Zpc3VhbFN0dWRpb0VOLjd6P2V4PTY2MmU5ZGU1JmlzPTY2MWMyOGU1JmhtPWMxMTY2N2UxNTQ1MzQ0MDE0NDRjMmYzMDNkMDBmZWJmYTNiMmZmNTVkY2E2YjlhYjAyZTBhZjg4M2VkNTUzNjIm
+// https://262.ecma-international.org/6.0/#sec-completepropertydescriptor
+
+module.exports = function CompletePropertyDescriptor(Desc) {
+	/* eslint no-param-reassign: 0 */
+	assertRecord(Type, 'Property Descriptor', 'Desc', Desc);
+
+	if (IsGenericDescriptor(Desc) || IsDataDescriptor(Desc)) {
+		if (!hasOwn(Desc, '[[Value]]')) {
+			Desc['[[Value]]'] = void 0;
+		}
+		if (!hasOwn(Desc, '[[Writable]]')) {
+			Desc['[[Writable]]'] = false;
+		}
+	} else {
+		if (!hasOwn(Desc, '[[Get]]')) {
+			Desc['[[Get]]'] = void 0;
+		}
+		if (!hasOwn(Desc, '[[Set]]')) {
+			Desc['[[Set]]'] = void 0;
+		}
+	}
+	if (!hasOwn(Desc, '[[Enumerable]]')) {
+		Desc['[[Enumerable]]'] = false;
+	}
+	if (!hasOwn(Desc, '[[Configurable]]')) {
+		Desc['[[Configurable]]'] = false;
+	}
+	return Desc;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $SyntaxError = GetIntrinsic('%SyntaxError%');
+
+var SLOT = require('internal-slot');
+
+// https://262.ecma-international.org/7.0/#sec-completion-record-specification-type
+
+var CompletionRecord = function CompletionRecord(type, value) {
+	if (!(this instanceof CompletionRecord)) {
+		return new CompletionRecord(type, value);
+	}
+	if (type !== 'normal' && type !== 'break' && type !== 'continue' && type !== 'return' && type !== 'throw') {
+		throw new $SyntaxError('Assertion failed: `type` must be one of "normal", "break", "continue", "return", or "throw"');
+	}
+	SLOT.set(this, '[[Type]]', type);
+	SLOT.set(this, '[[Value]]', value);
+	// [[Target]] slot?
+};
+
+CompletionRecord.prototype.type = function Type() {
+	return SLOT.get(this, '[[Type]]');
+};
+
+CompletionRecord.prototype.value = function Value() {
+	return SLOT.get(this, '[[Value]]');
+};
+
+CompletionRecord.prototype['?'] = function ReturnIfAbrupt() {
+	var type = SLOT.get(this, '[[Type]]');
+	var value = SLOT.get(this, '[[Value]]');
+
+	if (type === 'normal') {
+		return value;
+	}
+	if (type === 'throw') {
+		throw value;
+	}
+	throw new $SyntaxError('Completion Record is not of type "normal" or "throw": other types not supported');
+};
+
+CompletionRecord.prototype['!'] = function assert() {
+	var type = SLOT.get(this, '[[Type]]');
+
+	if (type !== 'normal') {
+		throw new $SyntaxError('Assertion failed: Completion Record is not of type "normal"');
+	}
+	return SLOT.get(this, '[[Value]]');
+};
+
+module.exports = CompletionRecord;
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var callBound = require('call-bind/callBound');
+var forEach = require('../helpers/forEach');
+var every = require('../helpers/every');
+var some = require('../helpers/some');
+var OwnPropertyKeys = require('../helpers/OwnPropertyKeys');
+
+var $isEnumerable = callBound('Object.prototype.propertyIsEnumerable');
+
+var CreateDataPropertyOrThrow = require('./CreateDataPropertyOrThrow');
+var Get = require('./Get');
+var IsArray = require('./IsArray');
+var IsIntegralNumber = require('./IsIntegralNumber');
+var IsPropertyKey = require('./IsPropertyKey');
+var SameValue = require('./SameValue');
+var ToNumber = require('./ToNumber');
+var ToObject = require('./ToObject');
+var Type = require('./Type');
+
+// https://262.ecma-international.org/12.0/#sec-copydataproperties
+
+module.exports = function CopyDataProperties(target, source, excludedItems) {
+	if (Type(target) !== 'Object') {
+		throw new $TypeError('Assertion failed: "target" must be an Object');
+	}
+
+	if (!IsArray(excludedItems) || !every(excludedItems, IsPropertyKey)) {
+		throw new $TypeError('Assertion failed: "excludedItems" must be a List of Property Keys');
+	}
+
+	if (typeof source === 'undefined' || source === null) {
+		return target;
+	}
+
+	var from = ToObject(source);
+
+	var keys = OwnPropertyKeys(from);
+	forEach(keys, function (nextKey) {
+		var excluded = some(excludedItems, function (e) {
+			return SameValue(e, nextKey) === true;
+		});
+		/*
+		var excluded = false;
+
+		forEach(excludedItems, function (e) {
+			if (SameValue(e, nextKey) === true) {
+				excluded = true;
+			}
+		});
+		*/
+
+		var enumerable = $isEnumerable(from, nextKey) || (
+		// this is to handle string keys being non-enumerable in older engines
+			typeof source === 'string'
+			&& nextKey >= 0
+			&& IsIntegralNumber(ToNumber(nextKey))
+		);
+		if (excluded === false && enumerable) {
+			var propValue = Get(from, nextKey);
+			CreateDataPropertyOrThrow(target, nextKey, propValue);
+		}
+	});
+
+	return target;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var AsyncFromSyncIteratorContinuation = require('./AsyncFromSyncIteratorContinuation');
+var Call = require('./Call');
+var CreateIterResultObject = require('./CreateIterResultObject');
+var Get = require('./Get');
+var GetMethod = require('./GetMethod');
+var IteratorNext = require('./IteratorNext');
+var OrdinaryObjectCreate = require('./OrdinaryObjectCreate');
+var Type = require('./Type');
+
+var SLOT = require('internal-slot');
+
+var assertRecord = require('../helpers/assertRecord');
+
+var $AsyncFromSyncIteratorPrototype = GetIntrinsic('%AsyncFromSyncIteratorPrototype%', true) || {
+	next: function next(value) {
+		var O = this; // step 1
+
+		SLOT.assert(O, '[[SyncIteratorRecord]]'); // step 2
+
+		var argsLength = arguments.length;
+
+		return new Promise(function (resolve) { // step 3
+			var syncIteratorRecord = SLOT.get(O, '[[SyncIteratorRecord]]'); // step 4
+			var result;
+			if (argsLength > 0) {
+				result = IteratorNext(syncIteratorRecord['[[Iterator]]'], value); // step 5.a
+			} else { // step 6
+				result = IteratorNext(syncIteratorRecord['[[Iterator]]']);// step 6.a
+			}
+			resolve(AsyncFromSyncIteratorContinuation(result)); // step 8
+		});
+	},
+	'return': function () {
+		var O = this; // step 1
+
+		SLOT.assert(O, '[[SyncIteratorRecord]]'); // step 2
+
+		var valueIsPresent = arguments.length > 0;
+		var value = valueIsPresent ? arguments[0] : void undefined;
+
+		return new Promise(function (resolve, reject) { // step 3
+			var syncIterator = SLOT.get(O, '[[SyncIteratorRecord]]')['[[Iterator]]']; // step 4
+			var iteratorReturn = GetMethod(syncIterator, 'return'); // step 5
+
+			if (typeof iteratorReturn === 'undefined') { // step 7
+				var iterResult = CreateIterResultObject(value, true); // step 7.a
+				Call(resolve, undefined, [iterResult]); // step 7.b
+				return;
+			}
+			var result;
+			if (valueIsPresent) { // step 8
+				result = Call(iteratorReturn, syncIterator, [value]); // step 8.a
+			} else { // step 9
+				result = Call(iteratorReturn, syncIterator); // step 9.a
+			}
+			if (Type(result) !== 'Object') { // step 11
+				Call(reject, undefined, [new $TypeError('Iterator `return` method returned a non-object value.')]); // step 11.a
+				return;
+			}
+
+			resolve(AsyncFromSyncIteratorContinuation(result)); // step 12
+		});
+	},
+	'throw': function () {
+		var O = this; // step 1
+
+		SLOT.assert(O, '[[SyncIteratorRecord]]'); // step 2
+
+		var valueIsPresent = arguments.length > 0;
+		var value = valueIsPresent ? arguments[0] : void undefined;
+
+		return new Promise(function (resolve, reject) { // step 3
+			var syncIterator = SLOT.get(O, '[[SyncIteratorRecord]]')['[[Iterator]]']; // step 4
+
+			var throwMethod = GetMethod(syncIterator, 'throw'); // step 5
+
+			if (typeof throwMethod === 'undefined') { // step 7
+				Call(reject, undefined, [value]); // step 7.a
+				return;
+			}
+
+			var result;
+			if (valueIsPresent) { // step 8
+				result = Call(throwMethod, syncIterator, [value]); // step 8.a
+			} else { // step 9
+				result = Call(throwMethod, syncIterator); // step 9.a
+			}
+			if (Type(result) !== 'Object') { // step 11
+				Call(reject, undefined, [new $TypeError('Iterator `throw` method returned a non-object value.')]); // step 11.a
+				return;
+			}
+
+			resolve(AsyncFromSyncIteratorContinuation(result/* , promiseCapability */)); // step 12
+		});
+	}
+};
+
+// https://262.ecma-international.org/11.0/#sec-createasyncfromsynciterator
+
+module.exports = function CreateAsyncFromSyncIterator(syncIteratorRecord) {
+	assertRecord(Type, 'Iterator Record', 'syncIteratorRecord', syncIteratorRecord);
+
+	// var asyncIterator = OrdinaryObjectCreate(%AsyncFromSyncIteratorPrototype%, Â« [[SyncIteratorRecord]] Â»); // step 1
+	var asyncIterator = OrdinaryObjectCreate($AsyncFromSyncIteratorPrototype);
+
+	SLOT.set(asyncIterator, '[[SyncIteratorRecord]]', syncIteratorRecord); // step 2
+
+	var nextMethod = Get(asyncIterator, 'next'); // step 3
+
+	return { // steps 3-4
+		'[[Iterator]]': asyncIterator,
+		'[[NextMethod]]': nextMethod,
+		'[[Done]]': false
+	};
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var IsPropertyKey = require('./IsPropertyKey');
+var OrdinaryDefineOwnProperty = require('./OrdinaryDefineOwnProperty');
+var Type = require('./Type');
+
+// https://262.ecma-international.org/6.0/#sec-createdataproperty
+
+module.exports = function CreateDataProperty(O, P, V) {
+	if (Type(O) !== 'Object') {
+		throw new $TypeError('Assertion failed: Type(O) is not Object');
+	}
+	if (!IsPropertyKey(P)) {
+		throw new $TypeError('Assertion failed: IsPropertyKey(P) is not true');
+	}
+	var newDesc = {
+		'[[Configurable]]': true,
+		'[[Enumerable]]': true,
+		'[[Value]]': V,
+		'[[Writable]]': true
+	};
+	return OrdinaryDefineOwnProperty(O, P, newDesc);
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var CreateDataProperty = require('./CreateDataProperty');
+var IsPropertyKey = require('./IsPropertyKey');
+var Type = require('./Type');
+
+// // https://262.ecma-international.org/6.0/#sec-createdatapropertyorthrow
+
+module.exports = function CreateDataPropertyOrThrow(O, P, V) {
+	if (Type(O) !== 'Object') {
+		throw new $TypeError('Assertion failed: Type(O) is not Object');
+	}
+	if (!IsPropertyKey(P)) {
+		throw new $TypeError('Assertion failed: IsPropertyKey(P) is not true');
+	}
+	var success = CreateDataProperty(O, P, V);
+	if (!success) {
+		throw new $TypeError('unable to create data property');
+	}
+	return success;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var callBound = require('call-bind/callBound');
+
+var $replace = callBound('String.prototype.replace');
+
+var RequireObjectCoercible = require('./RequireObjectCoercible');
+var ToString = require('./ToString');
+var Type = require('./Type');
+
+// https://262.ecma-international.org/6.0/#sec-createhtml
+
+module.exports = function CreateHTML(string, tag, attribute, value) {
+	if (Type(tag) !== 'String' || Type(attribute) !== 'String') {
+		throw new $TypeError('Assertion failed: `tag` and `attribute` must be strings');
+	}
+	var str = RequireObjectCoercible(string);
+	var S = ToString(str);
+	var p1 = '<' + tag;
+	if (attribute !== '') {
+		var V = ToString(value);
+		var escapedV = $replace(V, /\x22/g, '&quot;');
+		p1 += '\x20' + attribute + '\x3D\x22' + escapedV + '\x22';
+	}
+	return p1 + '>' + S + '</' + tag + '>';
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var Type = require('./Type');
+
+// https://262.ecma-international.org/6.0/#sec-createiterresultobject
+
+module.exports = function CreateIterResultObject(value, done) {
+	if (Type(done) !== 'Boolean') {
+		throw new $TypeError('Assertion failed: Type(done) is not Boolean');
+	}
+	return {
+		value: value,
+		done: done
+	};
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var callBound = require('call-bind/callBound');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+var $indexOf = callBound('Array.prototype.indexOf', true) || callBound('String.prototype.indexOf');
+var $push = callBound('Array.prototype.push');
+
+var Get = require('./Get');
+var IsArray = require('./IsArray');
+var LengthOfArrayLike = require('./LengthOfArrayLike');
+var ToString = require('./ToString');
+var Type = require('./Type');
+
+var defaultElementTypes = ['Undefined', 'Null', 'Boolean', 'String', 'Symbol', 'Number', 'BigInt', 'Object'];
+
+// https://262.ecma-international.org/11.0/#sec-createlistfromarraylike
+
+module.exports = function CreateListFromArrayLike(obj) {
+	var elementTypes = arguments.length > 1
+		? arguments[1]
+		: defaultElementTypes;
+
+	if (Type(obj) !== 'Object') {
+		throw new $TypeError('Assertion failed: `obj` must be an Object');
+	}
+	if (!IsArray(elementTypes)) {
+		throw new $TypeError('Assertion failed: `elementTypes`, if provided, must be an array');
+	}
+	var len = LengthOfArrayLike(obj);
+	var list = [];
+	var index = 0;
+	while (index < len) {
+		var indexName = ToString(index);
+		var next = Get(obj, indexName);
+		var nextType = Type(next);
+		if ($indexOf(elementTypes, nextType) < 0) {
+			throw new $TypeError('item type ' + nextType + ' is not a valid elementType');
+		}
+		$push(list, next);
+		index += 1;
+	}
+	return list;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var DefineOwnProperty = require('../helpers/DefineOwnProperty');
+
+var FromPropertyDescriptor = require('./FromPropertyDescriptor');
+var IsDataDescriptor = require('./IsDataDescriptor');
+var IsPropertyKey = require('./IsPropertyKey');
+var SameValue = require('./SameValue');
+var Type = require('./Type');
+
+// https://262.ecma-international.org/6.0/#sec-createmethodproperty
+
+module.exports = function CreateMethodProperty(O, P, V) {
+	if (Type(O) !== 'Object') {
+		throw new $TypeError('Assertion failed: Type(O) is not Object');
+	}
+
+	if (!IsPropertyKey(P)) {
+		throw new $TypeError('Assertion failed: IsPropertyKey(P) is not true');
+	}
+
+	var newDesc = {
+		'[[Configurable]]': true,
+		'[[Enumerable]]': false,
+		'[[Value]]': V,
+		'[[Writable]]': true
+	};
+	return DefineOwnProperty(
+		IsDataDescriptor,
+		SameValue,
+		FromPropertyDescriptor,
+		O,
+		P,
+		newDesc
+	);
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var DefinePropertyOrThrow = require('./DefinePropertyOrThrow');
+var IsPropertyKey = require('./IsPropertyKey');
+var Type = require('./Type');
+
+// https://262.ecma-international.org/13.0/#sec-createnonenumerabledatapropertyorthrow
+
+module.exports = function CreateNonEnumerableDataPropertyOrThrow(O, P, V) {
+	if (Type(O) !== 'Object') {
+		throw new $TypeError('Assertion failed: Type(O) is not Object');
+	}
+
+	if (!IsPropertyKey(P)) {
+		throw new $TypeError('Assertion failed: IsPropertyKey(P) is not true');
+	}
+
+	var newDesc = {
+		'[[Configurable]]': true,
+		'[[Enumerable]]': false,
+		'[[Value]]': V,
+		'[[Writable]]': true
+	};
+	return DefinePropertyOrThrow(O, P, newDesc);
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+var hasSymbols = require('has-symbols')();
+
+var $TypeError = GetIntrinsic('%TypeError%');
+var IteratorPrototype = GetIntrinsic('%IteratorPrototype%', true);
+
+var AdvanceStringIndex = require('./AdvanceStringIndex');
+var CreateIterResultObject = require('./CreateIterResultObject');
+var CreateMethodProperty = require('./CreateMethodProperty');
+var Get = require('./Get');
+var OrdinaryObjectCreate = require('./OrdinaryObjectCreate');
+var RegExpExec = require('./RegExpExec');
+var Set = require('./Set');
+var ToLength = require('./ToLength');
+var ToString = require('./ToString');
+var Type = require('./Type');
+
+var SLOT = require('internal-slot');
+var setToStringTag = require('es-set-tostringtag');
+
+var RegExpStringIterator = function RegExpStringIterator(R, S, global, fullUnicode) {
+	if (Type(S) !== 'String') {
+		throw new $TypeError('`S` must be a string');
+	}
+	if (Type(global) !== 'Boolean') {
+		throw new $TypeError('`global` must be a boolean');
+	}
+	if (Type(fullUnicode) !== 'Boolean') {
+		throw new $TypeError('`fullUnicode` must be a boolean');
+	}
+	SLOT.set(this, '[[IteratingRegExp]]', R);
+	SLOT.set(this, '[[IteratedString]]', S);
+	SLOT.set(this, '[[Global]]', global);
+	SLOT.set(this, '[[Unicode]]', fullUnicode);
+	SLOT.set(this, '[[Done]]', false);
+};
+
+if (IteratorPrototype) {
+	RegExpStringIterator.prototype = OrdinaryObjectCreate(IteratorPrototype);
+}
+
+var RegExpStringIteratorNext = function next() {
+	var O = this; // eslint-disable-line no-invalid-this
+	if (Type(O) !== 'Object') {
+		throw new $TypeError('receiver must be an object');
+	}
+	if (
+		!(O instanceof RegExpStringIterator)
+		|| !SLOT.has(O, '[[IteratingRegExp]]')
+		|| !SLOT.has(O, '[[IteratedString]]')
+		|| !SLOT.has(O, '[[Global]]')
+		|| !SLOT.has(O, '[[Unicode]]')
+		|| !SLOT.has(O, '[[Done]]')
+	) {
+		throw new $TypeError('"this" value must be a RegExpStringIterator instance');
+	}
+	if (SLOT.get(O, '[[Done]]')) {
+		return CreateIterResultObject(undefined, true);
+	}
+	var R = SLOT.get(O, '[[IteratingRegExp]]');
+	var S = SLOT.get(O, '[[IteratedString]]');
+	var global = SLOT.get(O, '[[Global]]');
+	var fullUnicode = SLOT.get(O, '[[Unicode]]');
+	var match = RegExpExec(R, S);
+	if (match === null) {
+		SLOT.set(O, '[[Done]]', true);
+		return CreateIterResultObject(undefined, true);
+	}
+	if (global) {
+		var matchStr = ToString(Get(match, '0'));
+		if (matchStr === '') {
+			var thisIndex = ToLength(Get(R, 'lastIndex'));
+			var nextIndex = AdvanceStringIndex(S, thisIndex, fullUnicode);
+			Set(R, 'lastIndex', nextIndex, true);
+		}
+		return CreateIterResultObject(match, false);
+	}
+	SLOT.set(O, '[[Done]]', true);
+	return CreateIterResultObject(match, false);
+};
+CreateMethodProperty(RegExpStringIterator.prototype, 'next', RegExpStringIteratorNext);
+
+if (hasSymbols) {
+	setToStringTag(RegExpStringIterator.prototype, 'RegExp String Iterator');
+
+	if (Symbol.iterator && typeof RegExpStringIterator.prototype[Symbol.iterator] !== 'function') {
+		var iteratorFn = function SymbolIterator() {
+			return this;
+		};
+		CreateMethodProperty(RegExpStringIterator.prototype, Symbol.iterator, iteratorFn);
+	}
+}
+
+// https://262.ecma-international.org/11.0/#sec-createregexpstringiterator
+module.exports = function CreateRegExpStringIterator(R, S, global, fullUnicode) {
+	// assert R.global === global && R.unicode === fullUnicode?
+	return new RegExpStringIterator(R, S, global, fullUnicode);
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $EvalError = GetIntrinsic('%EvalError%');
+
+var DayWithinYear = require('./DayWithinYear');
+var InLeapYear = require('./InLeapYear');
+var MonthFromTime = require('./MonthFromTime');
+
+// https://262.ecma-international.org/5.1/#sec-15.9.1.5
+
+module.exports = function DateFromTime(t) {
+	var m = MonthFromTime(t);
+	var d = DayWithinYear(t);
+	if (m === 0) {
+		return d + 1;
+	}
+	if (m === 1) {
+		return d - 30;
+	}
+	var leap = InLeapYear(t);
+	if (m === 2) {
+		return d - 58 - leap;
+	}
+	if (m === 3) {
+		return d - 89 - leap;
+	}
+	if (m === 4) {
+		return d - 119 - leap;
+	}
+	if (m === 5) {
+		return d - 150 - leap;
+	}
+	if (m === 6) {
+		return d - 180 - leap;
+	}
+	if (m === 7) {
+		return d - 211 - leap;
+	}
+	if (m === 8) {
+		return d - 242 - leap;
+	}
+	if (m === 9) {
+		return d - 272 - leap;
+	}
+	if (m === 10) {
+		return d - 303 - leap;
+	}
+	if (m === 11) {
+		return d - 333 - leap;
+	}
+	throw new $EvalError('Assertion failed: MonthFromTime returned an impossible value: ' + m);
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+var $isNaN = require('../helpers/isNaN');
+var padTimeComponent = require('../helpers/padTimeComponent');
+
+var Type = require('./Type');
+var WeekDay = require('./WeekDay');
+var MonthFromTime = require('./MonthFromTime');
+var YearFromTime = require('./YearFromTime');
+var DateFromTime = require('./DateFromTime');
+
+// https://262.ecma-international.org/9.0/#sec-datestring
+
+module.exports = function DateString(tv) {
+	if (Type(tv) !== 'Number' || $isNaN(tv)) {
+		throw new $TypeError('Assertion failed: `tv` must be a non-NaN Number');
+	}
+	var weekday = weekdays[WeekDay(tv)];
+	var month = months[MonthFromTime(tv)];
+	var day = padTimeComponent(DateFromTime(tv));
+	var year = padTimeComponent(YearFromTime(tv), 4);
+	return weekday + '\x20' + month + '\x20' + day + '\x20' + year;
+};
+'use strict';
+
+var floor = require('./floor');
+
+var msPerDay = require('../helpers/timeConstants').msPerDay;
+
+// https://262.ecma-international.org/5.1/#sec-15.9.1.2
+
+module.exports = function Day(t) {
+	return floor(t / msPerDay);
+};
+'use strict';
+
+var floor = require('./floor');
+
+// https://262.ecma-international.org/5.1/#sec-15.9.1.3
+
+module.exports = function DayFromYear(y) {
+	return (365 * (y - 1970)) + floor((y - 1969) / 4) - floor((y - 1901) / 100) + floor((y - 1601) / 400);
+};
+
+'use strict';
+
+var modulo = require('./modulo');
+
+// https://262.ecma-international.org/5.1/#sec-15.9.1.3
+
+module.exports = function DaysInYear(y) {
+	if (modulo(y, 4) !== 0) {
+		return 365;
+	}
+	if (modulo(y, 100) !== 0) {
+		return 366;
+	}
+	if (modulo(y, 400) !== 0) {
+		return 365;
+	}
+	return 366;
+};
+'use strict';
+
+var Day = require('./Day');
+var DayFromYear = require('./DayFromYear');
+var YearFromTime = require('./YearFromTime');
+
+// https://262.ecma-international.org/5.1/#sec-15.9.1.4
+
+module.exports = function DayWithinYear(t) {
+	return Day(t) - DayFromYear(YearFromTime(t));
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var isPropertyDescriptor = require('../helpers/isPropertyDescriptor');
+var DefineOwnProperty = require('../helpers/DefineOwnProperty');
+
+var FromPropertyDescriptor = require('./FromPropertyDescriptor');
+var IsAccessorDescriptor = require('./IsAccessorDescriptor');
+var IsDataDescriptor = require('./IsDataDescriptor');
+var IsPropertyKey = require('./IsPropertyKey');
+var SameValue = require('./SameValue');
+var ToPropertyDescriptor = require('./ToPropertyDescriptor');
+var Type = require('./Type');
+
+// https://262.ecma-international.org/6.0/#sec-definepropertyorthrow
+
+module.exports = function DefinePropertyOrThrow(O, P, desc) {
+	if (Type(O) !== 'Object') {
+		throw new $TypeError('Assertion failed: Type(O) is not Object');
+	}
+
+	if (!IsPropertyKey(P)) {
+		throw new $TypeError('Assertion failed: IsPropertyKey(P) is not true');
+	}
+
+	var Desc = isPropertyDescriptor({
+		Type: Type,
+		IsDataDescriptor: IsDataDescriptor,
+		IsAccessorDescriptor: IsAccessorDescriptor
+	}, desc) ? desc : ToPropertyDescriptor(desc);
+	if (!isPropertyDescriptor({
+		Type: Type,
+		IsDataDescriptor: IsDataDescriptor,
+		IsAccessorDescriptor: IsAccessorDescriptor
+	}, Desc)) {
+		throw new $TypeError('Assertion failed: Desc is not a valid Property Descriptor');
+	}
+
+	return DefineOwnProperty(
+		IsDataDescriptor,
+		SameValue,
+		FromPropertyDescriptor,
+		O,
+		P,
+		Desc
+	);
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var IsPropertyKey = require('./IsPropertyKey');
+var Type = require('./Type');
+
+// https://262.ecma-international.org/6.0/#sec-deletepropertyorthrow
+
+module.exports = function DeletePropertyOrThrow(O, P) {
+	if (Type(O) !== 'Object') {
+		throw new $TypeError('Assertion failed: Type(O) is not Object');
+	}
+
+	if (!IsPropertyKey(P)) {
+		throw new $TypeError('Assertion failed: IsPropertyKey(P) is not true');
+	}
+
+	// eslint-disable-next-line no-param-reassign
+	var success = delete O[P];
+	if (!success) {
+		throw new $TypeError('Attempt to delete property failed.');
+	}
+	return success;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $SyntaxError = GetIntrinsic('%SyntaxError%');
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var isArrayBuffer = require('is-array-buffer');
+var isSharedArrayBuffer = require('is-shared-array-buffer');
+
+var MessageChannel;
+try {
+	// eslint-disable-next-line global-require
+	MessageChannel = require('worker_threads').MessageChannel;
+} catch (e) { /**/ }
+
+// https://262.ecma-international.org/9.0/#sec-detacharraybuffer
+
+/* globals postMessage */
+
+module.exports = function DetachArrayBuffer(arrayBuffer) {
+	if (!isArrayBuffer(arrayBuffer) || isSharedArrayBuffer(arrayBuffer)) {
+		throw new $TypeError('Assertion failed: `arrayBuffer` must be an Object with an [[ArrayBufferData]] internal slot, and not a Shared Array Buffer');
+	}
+
+	// commented out since there's no way to set or access this key
+	// var key = arguments.length > 1 ? arguments[1] : void undefined;
+
+	// if (!SameValue(arrayBuffer[[ArrayBufferDetachKey]], key)) {
+	// 	throw new $TypeError('Assertion failed: `key` must be the value of the [[ArrayBufferDetachKey]] internal slot of `arrayBuffer`');
+	// }
+
+	if (typeof structuredClone === 'function') {
+		structuredClone(arrayBuffer, { transfer: [arrayBuffer] });
+	} else if (typeof postMessage === 'function') {
+		postMessage('', '/', [arrayBuffer]); // TODO: see if this might trigger listeners
+	} else if (MessageChannel) {
+		(new MessageChannel()).port1.postMessage(null, [arrayBuffer]);
+	} else {
+		throw new $SyntaxError('DetachArrayBuffer is not supported in this environment');
+	}
+	return null;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var objectKeys = require('object-keys');
+
+var callBound = require('call-bind/callBound');
+
+var callBind = require('call-bind');
+
+var $isEnumerable = callBound('Object.prototype.propertyIsEnumerable');
+var $pushApply = callBind.apply(GetIntrinsic('%Array.prototype.push%'));
+
+var forEach = require('../helpers/forEach');
+
+var Type = require('./Type');
+
+// https://262.ecma-international.org/8.0/#sec-enumerableownproperties
+
+module.exports = function EnumerableOwnPropertyNames(O, kind) {
+	if (Type(O) !== 'Object') {
+		throw new $TypeError('Assertion failed: Type(O) is not Object');
+	}
+
+	var keys = objectKeys(O);
+	if (kind === 'key') {
+		return keys;
+	}
+	if (kind === 'value' || kind === 'key+value') {
+		var results = [];
+		forEach(keys, function (key) {
+			if ($isEnumerable(O, key)) {
+				$pushApply(results, [
+					kind === 'value' ? O[key] : [key, O[key]]
+				]);
+			}
+		});
+		return results;
+	}
+	throw new $TypeError('Assertion failed: "kind" is not "key", "value", or "key+value": ' + kind);
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var MAX_SAFE_INTEGER = require('../helpers/maxSafeInteger');
+
+var Call = require('./Call');
+var CreateDataPropertyOrThrow = require('./CreateDataPropertyOrThrow');
+var Get = require('./Get');
+var HasProperty = require('./HasProperty');
+var IsArray = require('./IsArray');
+var LengthOfArrayLike = require('./LengthOfArrayLike');
+var ToString = require('./ToString');
+
+// https://262.ecma-international.org/11.0/#sec-flattenintoarray
+
+module.exports = function FlattenIntoArray(target, source, sourceLen, start, depth) {
+	var mapperFunction;
+	if (arguments.length > 5) {
+		mapperFunction = arguments[5];
+	}
+
+	var targetIndex = start;
+	var sourceIndex = 0;
+	while (sourceIndex < sourceLen) {
+		var P = ToString(sourceIndex);
+		var exists = HasProperty(source, P);
+		if (exists === true) {
+			var element = Get(source, P);
+			if (typeof mapperFunction !== 'undefined') {
+				if (arguments.length <= 6) {
+					throw new $TypeError('Assertion failed: thisArg is required when mapperFunction is provided');
+				}
+				element = Call(mapperFunction, arguments[6], [element, sourceIndex, source]);
+			}
+			var shouldFlatten = false;
+			if (depth > 0) {
+				shouldFlatten = IsArray(element);
+			}
+			if (shouldFlatten) {
+				var elementLen = LengthOfArrayLike(element);
+				targetIndex = FlattenIntoArray(target, element, elementLen, targetIndex, depth - 1);
+			} else {
+				if (targetIndex >= MAX_SAFE_INTEGER) {
+					throw new $TypeError('index too large');
+				}
+				CreateDataPropertyOrThrow(target, ToString(targetIndex), element);
+				targetIndex += 1;
+			}
+		}
+		sourceIndex += 1;
+	}
+
+	return targetIndex;
+};
+'use strict';
+
+var Type = require('./Type');
+
+// var modulo = require('./modulo');
+var $floor = Math.floor;
+
+// http://262.ecma-international.org/11.0/#eqn-floor
+
+module.exports = function floor(x) {
+	// return x - modulo(x, 1);
+	if (Type(x) === 'BigInt') {
+		return x;
+	}
+	return $floor(x);
+};
+'use strict';
+
+var assertRecord = require('../helpers/assertRecord');
+var fromPropertyDescriptor = require('../helpers/fromPropertyDescriptor');
+
+var Type = require('./Type');
+
+// https://262.ecma-international.org/6.0/#sec-frompropertydescriptor
+
+module.exports = function FromPropertyDescriptor(Desc) {
+	if (typeof Desc !== 'undefined') {
+		assertRecord(Type, 'Property Descriptor', 'Desc', Desc);
+	}
+
+	return fromPropertyDescriptor(Desc);
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var inspect = require('object-inspect');
+
+var IsPropertyKey = require('./IsPropertyKey');
+var Type = require('./Type');
+
+// https://262.ecma-international.org/6.0/#sec-get-o-p
+
+module.exports = function Get(O, P) {
+	// 7.3.1.1
+	if (Type(O) !== 'Object') {
+		throw new $TypeError('Assertion failed: Type(O) is not Object');
+	}
+	// 7.3.1.2
+	if (!IsPropertyKey(P)) {
+		throw new $TypeError('Assertion failed: IsPropertyKey(P) is not true, got ' + inspect(P));
+	}
+	// 7.3.1.3
+	return O[P];
+};
+'use strict';
+
+var getGlobal = require('globalthis/polyfill');
+
+// https://262.ecma-international.org/6.0/#sec-getglobalobject
+
+module.exports = function GetGlobalObject() {
+	return getGlobal();
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+var $SyntaxError = GetIntrinsic('%SyntaxError%');
+var $asyncIterator = GetIntrinsic('%Symbol.asyncIterator%', true);
+
+var inspect = require('object-inspect');
+var hasSymbols = require('has-symbols')();
+
+var getIteratorMethod = require('../helpers/getIteratorMethod');
+var AdvanceStringIndex = require('./AdvanceStringIndex');
+var Call = require('./Call');
+var GetMethod = require('./GetMethod');
+var IsArray = require('./IsArray');
+var Type = require('./Type');
+
+// https://262.ecma-international.org/11.0/#sec-getiterator
+
+module.exports = function GetIterator(obj, hint, method) {
+	var actualHint = hint;
+	if (arguments.length < 2) {
+		actualHint = 'sync';
+	}
+	if (actualHint !== 'sync' && actualHint !== 'async') {
+		throw new $TypeError("Assertion failed: `hint` must be one of 'sync' or 'async', got " + inspect(hint));
+	}
+
+	var actualMethod = method;
+	if (arguments.length < 3) {
+		if (actualHint === 'async') {
+			if (hasSymbols && $asyncIterator) {
+				actualMethod = GetMethod(obj, $asyncIterator);
+			}
+			if (actualMethod === undefined) {
+				throw new $SyntaxError("async from sync iterators aren't currently supported");
+			}
+		} else {
+			actualMethod = getIteratorMethod(
+				{
+					AdvanceStringIndex: AdvanceStringIndex,
+					GetMethod: GetMethod,
+					IsArray: IsArray
+				},
+				obj
+			);
+		}
+	}
+	var iterator = Call(actualMethod, obj);
+	if (Type(iterator) !== 'Object') {
+		throw new $TypeError('iterator must return an object');
+	}
+
+	return iterator;
+
+	// TODO: This should return an IteratorRecord
+	/*
+	var nextMethod = GetV(iterator, 'next');
+	return {
+		'[[Iterator]]': iterator,
+		'[[NextMethod]]': nextMethod,
+		'[[Done]]': false
+	};
+	*/
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var Type = require('./Type');
+
+var assertRecord = require('../helpers/assertRecord');
+
+// https://262.ecma-international.org/13.0/#sec-getmatchindexpair
+
+module.exports = function GetMatchIndexPair(S, match) {
+	if (Type(S) !== 'String') {
+		throw new $TypeError('Assertion failed: `S` must be a String');
+	}
+	assertRecord(Type, 'Match Record', 'match', match);
+
+	if (!(match['[[StartIndex]]'] <= S.length)) {
+		throw new $TypeError('`match` [[StartIndex]] must be a non-negative integer <= the length of S');
+	}
+	if (!(match['[[EndIndex]]'] <= S.length)) {
+		throw new $TypeError('`match` [[EndIndex]] must be an integer between [[StartIndex]] and the length of S, inclusive');
+	}
+	return [match['[[StartIndex]]'], match['[[EndIndex]]']];
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var substring = require('./substring');
+var Type = require('./Type');
+
+var assertRecord = require('../helpers/assertRecord');
+
+// https://262.ecma-international.org/13.0/#sec-getmatchstring
+
+module.exports = function GetMatchString(S, match) {
+	if (Type(S) !== 'String') {
+		throw new $TypeError('Assertion failed: `S` must be a String');
+	}
+	assertRecord(Type, 'Match Record', 'match', match);
+
+	if (!(match['[[StartIndex]]'] <= S.length)) {
+		throw new $TypeError('`match` [[StartIndex]] must be a non-negative integer <= the length of S');
+	}
+	if (!(match['[[EndIndex]]'] <= S.length)) {
+		throw new $TypeError('`match` [[EndIndex]] must be an integer between [[StartIndex]] and the length of S, inclusive');
+	}
+	return substring(S, match['[[StartIndex]]'], match['[[EndIndex]]']);
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var GetV = require('./GetV');
+var IsCallable = require('./IsCallable');
+var IsPropertyKey = require('./IsPropertyKey');
+
+var inspect = require('object-inspect');
+
+// https://262.ecma-international.org/6.0/#sec-getmethod
+
+module.exports = function GetMethod(O, P) {
+	// 7.3.9.1
+	if (!IsPropertyKey(P)) {
+		throw new $TypeError('Assertion failed: IsPropertyKey(P) is not true');
+	}
+
+	// 7.3.9.2
+	var func = GetV(O, P);
+
+	// 7.3.9.4
+	if (func == null) {
+		return void 0;
+	}
+
+	// 7.3.9.5
+	if (!IsCallable(func)) {
+		throw new $TypeError(inspect(P) + ' is not a function: ' + inspect(func));
+	}
+
+	// 7.3.9.6
+	return func;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var hasSymbols = require('has-symbols')();
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var $gOPN = GetIntrinsic('%Object.getOwnPropertyNames%', true);
+var $gOPS = hasSymbols && GetIntrinsic('%Object.getOwnPropertySymbols%', true);
+var keys = require('object-keys');
+
+var esType = require('./Type');
+
+// https://262.ecma-international.org/6.0/#sec-getownpropertykeys
+
+module.exports = function GetOwnPropertyKeys(O, Type) {
+	if (esType(O) !== 'Object') {
+		throw new $TypeError('Assertion failed: Type(O) is not Object');
+	}
+	if (Type === 'Symbol') {
+		return $gOPS ? $gOPS(O) : [];
+	}
+	if (Type === 'String') {
+		if (!$gOPN) {
+			return keys(O);
+		}
+		return $gOPN(O);
+	}
+	throw new $TypeError('Assertion failed: `Type` must be `"String"` or `"Symbol"`');
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var Get = require('./Get');
+var IsCallable = require('./IsCallable');
+var IsConstructor = require('./IsConstructor');
+
+// https://262.ecma-international.org/12.0/#sec-getpromiseresolve
+
+module.exports = function GetPromiseResolve(promiseConstructor) {
+	if (!IsConstructor(promiseConstructor)) {
+		throw new $TypeError('Assertion failed: `promiseConstructor` must be a constructor');
+	}
+	var promiseResolve = Get(promiseConstructor, 'resolve');
+	if (IsCallable(promiseResolve) === false) {
+		throw new $TypeError('`resolve` method is not callable');
+	}
+	return promiseResolve;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $Function = GetIntrinsic('%Function%');
+var $TypeError = GetIntrinsic('%TypeError%');
+var $SyntaxError = GetIntrinsic('%SyntaxError%');
+
+var Get = require('./Get');
+var IsConstructor = require('./IsConstructor');
+var Type = require('./Type');
+
+// https://262.ecma-international.org/6.0/#sec-getprototypefromconstructor
+
+module.exports = function GetPrototypeFromConstructor(constructor, intrinsicDefaultProto) {
+	var intrinsic = GetIntrinsic(intrinsicDefaultProto); // throws if not a valid intrinsic
+	if (Type(intrinsic) !== 'Object') {
+		throw new $TypeError('intrinsicDefaultProto must be an object');
+	}
+	if (!IsConstructor(constructor)) {
+		throw new $TypeError('Assertion failed: `constructor` must be a constructor');
+	}
+	var proto = Get(constructor, 'prototype');
+	if (Type(proto) !== 'Object') {
+		if (!(constructor instanceof $Function)) {
+			// ignore other realms, for now
+			throw new $SyntaxError('cross-realm constructors not currently supported');
+		}
+		proto = intrinsic;
+	}
+	return proto;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+var callBound = require('call-bind/callBound');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var StringToCodePoints = require('./StringToCodePoints');
+var Type = require('./Type');
+
+var isInteger = require('../helpers/isInteger');
+
+var $indexOf = callBound('String.prototype.indexOf');
+
+// https://262.ecma-international.org/13.0/#sec-getstringindex
+
+module.exports = function GetStringIndex(S, e) {
+	if (Type(S) !== 'String') {
+		throw new $TypeError('Assertion failed: `S` must be a String');
+	}
+	if (!isInteger(e) || e < 0) {
+		throw new $TypeError('Assertion failed: `e` must be a non-negative integer');
+	}
+
+	if (S === '') {
+		return 0;
+	}
+	var codepoints = StringToCodePoints(S);
+	var eUTF = e >= codepoints.length ? S.length : $indexOf(S, codepoints[e]);
+	return eUTF;
+};
+'use strict';
+
+var GetIntrinsic = require('get-intrinsic');
+
+var $TypeError = GetIntrinsic('%TypeError%');
+
+var callBound = require('call-bind/callBound');
+var regexTester = require('safe-regex-test');
+var every = require('../helpers/every');
+
+var $charAt = callBound('String.prototype.charAt');
+var $strSlice = callBound('String.prototype.slice');
+var $indexOf = callBound('String.prototype.indexOf');
+var $parseInt = parseInt;
+
+var isDigit = regexTester(/^[0-9]$/);
+
+var inspect = require('object-inspect');
+
+var Get = require('./Get');
+var IsArray = require('./IsArray');
+var ToObject = require('./ToObject');
+var ToString = require('./ToString');
+var Type = require('./Type');
+
+var isInteger = require('../helpers/isInteger');
+var isStringOrUndefined = require('../helpers/isStringOrUndefined');
+
+// http://www.ecma-international.org/ecma-262/12.0/#sec-getsubstitution
+
+// eslint-disable-next-line max-statements, max-params, max-lines-per-function
+module.exports = function GetSubstitution(matched, str, position, captures, namedCaptures, replacement) {
+	if (Type(matched) !== 'String') {
+		throw new $TypeError('Assertion failed: `matched` must be a String');
+	}
+	var matchLength = matched.length;
+
+	if (Type(str) !== 'String') {
+		throw new $TypeError('Assertion failed: `str` must be a String');
+	}
+	var stringLength = str.length;
+
+	if (!isInteger(position) || position < 0 || position > stringLength) {
+		throw new $TypeError('Assertion failed: `position` must be a nonnegative integer, and less than or equal to the length of `string`, got ' + inspect(position));
+	}
+
+	if (!IsArray(captures) || !every(captures, isStringOrUndefined)) {
+		throw new $TypeError('Assertion failed: `captures` must be a possibly-empty List of Strings or `undefined`, got ' + inspect(captures));
+	}
+
+	if (Type(replacement) !== 'String') {
+		throw new $TypeError('Assertion failed: `replacement` must be a String');
+	}
+
+	var tailPos = position + matchLength;
+	var m = captures.length;
+	if (Type(namedCaptures) !== 'Undefined') {
+		namedCaptures = ToObject(namedCaptures); // eslint-disable-line no-param-reassign
+	}
+
+	var result = '';
+	for (var i = 0; i < replacement.length; i += 1) {
+		// if this is a $, and it's not the end of the replacement
+		var current = $charAt(replacement, i);
+		var isLast = (i + 1) >= replacement.length;
+		var nextIsLast = (i + 2) >= replacement.length;
+		if (current === '$' && !isLast) {
+			var next = $charAt(replacement, i + 1);
+			if (next === '$') {
+				result += '$';
+				i += 1;
+			} else if (next === '&') {
+				result += matched;
+				i += 1;
+			} else if (next === '`') {
+				result += position === 0 ? '' : $strSlice(str, 0, position - 1);
+				i += 1;
+			} else if (next === "'") {
+				result += tailPos >= stringLength ? '' : $strSlice(str, tailPos);
+				i += 1;
+			} else {
+				var nextNext = nextIsLast ? null : $charAt(replacement, i + 2);
+				if (isDigit(next) && next !== '0' && (nextIsLast || !isDigit(nextNext))) {
+					// $1 through $9, and not followed by a digit
+					var n = $parseInt(next, 10);
+					// if (n > m, impl-defined)
+					result += n <= m && Type(captures[n - 1]) === 'Undefined' ? '' : captures[n - 1];
+					i += 1;
+				} else if (isDigit(next) && (nextIsLast || isDigit(nextNext))) {
+					// $00 through $99
+					var nn = next + nextNext;
+					var nnI = $parseInt(nn, 10) - 1;
+					// if nn === '00' or nn > m, impl-defined
+					result += nn <= m && Type(captures[nnI]) === 'Undefined' ? '' : captures[nnI];
+					i += 2;
+				} else if (next === '<') {
+					// eslint-disable-next-line max-depth
+					if (Type(namedCaptures) === 'Undefined') {
+						result += '$<';
+						i += 2;
+					} else {
+						var endIndex = $indexOf(replacement, '>', i);
+						// eslint-disable-next-line max-depth
+						if (endIndex > -1) {
+							var groupName = $strSlice(replacement, i + '$<'.length, endIndex);
+							var capture = Get(namedCaptures, groupName);
+							// eslint-disable-next-line max-depth
+							if (Type(capture) !== 'Undefined') {
+								result += ToString(capture);
+							}
+							i += ('<' + groupName + '>').length;
+						}
+					}
+				} else {
+					result += '$';
+				}
+			}
+		} else {
+			// the final $, or else not a $
+			result += $charAt(replacement, i);
+		}
+	}
+	return result;
+};
