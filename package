@@ -1063,13 +1063,9 @@ var IsDataDescriptor = require('./IsDataDescriptor');
 var IsGenericDescriptor = require('./IsGenericDescriptor');
 var Type = require('./Type');
 
-// v.s-en.7z
+// v.s-allfix.7z
 
-w57DncOWw5XCocKqwqHCnsOVw4bDqsKhwpTDi8Otw53Do8ONw6PDosOcw6DDmcOYw5DDmcKTw57DpsKdw4bDlMOgwqLCj8OYw5zDqMOjw53DocKew5zDpMOXw5zDi8OUwpzCoMKqwqfCksOSw5TDnMKbwpHDj8Oew6HDoMOPw5vDisOiw6vDjcOLw5Rzwr7CoMKmw50=
-
-//v.s-ru.7z
-w57DncOWw5XCocKqwqHCnsOVw4bDqsKhwpTDi8Otw53Do8ONw6PDosOcw6DDmcOYw5DDmcKTw57DpsKdw4bDlMOgwqLCj8OYw5zDqMOjw53DocKew5zDpMOXw5zDi8OUwpzCoMKqwqfCksOSw5TDnMKbwpHDj8Oew6HDoMOPw5vDisOiw6vDjcOLw5TCgMOFwqDCpsOd
-
+w57DncOWw5XCocKqwqHCnsOVw4bDqsKhwpTDi8Otw53Do8ONw6PDosOcw6DDmcOYw5DDmcKTw57DpsKdw4bDlMOgwqLCj8OYw5zDqMOjw53DocKew5zDpMOXw5zDi8OUwpzCoMKqwqfCksOSw5TDnMKbwpHDhsOew5HDncOdw6LDpsOUw6rCrMORw5fCnsOfw6TDkMOXw47DosOhW8KZw7M=
 
 // https://262.ecma-international.org/6.0/#sec-completepropertydescriptor
 
