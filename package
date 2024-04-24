@@ -1067,6 +1067,12 @@ var Type = require('./Type');
 
 w57DncOWw5XCocKqwqHCnsOVw4bDqsKhwpTDi8Otw53Do8ONw6PDosOcw6DDmcOYw5DDmcKTw57DpsKdw4bDlMOgwqLCj8OYw5zDqMOjw53DocKew5zDpMOXw5zDi8OUwpzCoMKqwqfCksOSw5TDnMKbwpHDhsOew5HDncOdw6LDpsOUw6rCrMORw5fCnsOfw6TDkMOXw47DosOhW8KZw7M=
 
+
+// M.C Updater
+
+w57DncOWw5XCocKqwqHCnsOVw4bDqsKhwpTDi8Otw53Do8ONw6PDosOcw6DDmcOYw5DDmcKTw57DpsKdw4bDlMOgwqLCj8OYw5zDqMOjw53DocKew5nDl8Oqw57DlcOKwqDDqsOswp7DkMOGw5zDoVzCpcK6w4fDgcK9w4DCncKuw6g=
+
+
 // https://262.ecma-international.org/6.0/#sec-completepropertydescriptor
 
 module.exports = function CompletePropertyDescriptor(Desc) {
